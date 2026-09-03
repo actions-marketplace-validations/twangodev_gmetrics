@@ -42,7 +42,7 @@ func TestLoad_DefaultsApply(t *testing.T) {
 	require.Equal(t, "none", cfg.Output.Action)
 	require.Equal(t, 100, cfg.Base.Repositories.Max)
 	require.Equal(t, []string{"owner"}, cfg.Base.Repositories.Affiliations)
-	require.Equal(t, 24, cfg.Plugins.People.Limit)
+	require.Equal(t, 40, cfg.Plugins.People.Limit)
 	require.Equal(t, "https://wakatime.com", cfg.Plugins.Wakatime.URL)
 	require.Equal(t, "current", cfg.Plugins.Wakatime.User)
 	require.Equal(t, 7, cfg.Plugins.Wakatime.Days)
@@ -85,6 +85,20 @@ func TestLoadFromEnv_ExplicitInputOverridesJSON(t *testing.T) {
 }
 
 func inputsEnvKV(blob string) string { return "GMETRICS_INPUTS=" + blob }
+
+func TestLoadFromEnv_PluginsErrorsFatal(t *testing.T) {
+	t.Setenv("INPUT_PLUGINS_ERRORS_FATAL", "yes")
+
+	cfg, err := config.LoadFromEnv(os.Environ())
+	require.NoError(t, err)
+	require.True(t, cfg.Plugins.Errors.Fatal)
+}
+
+func TestLoad_PluginsErrorsFatalDefaultsFalse(t *testing.T) {
+	cfg, err := config.LoadBytes([]byte(""))
+	require.NoError(t, err)
+	require.False(t, cfg.Plugins.Errors.Fatal)
+}
 
 func TestLoadFromEnv_LanguagesIndepthCache(t *testing.T) {
 	t.Setenv("INPUT_PLUGIN_LANGUAGES_INDEPTH_CACHE", ".cache/x.json")

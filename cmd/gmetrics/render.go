@@ -67,11 +67,12 @@ func runRender(cmd *cobra.Command, args []string) error {
 	}
 
 	hc := httpx.New(httpx.Config{
-		MaxRetries:    3,
-		RetryWait:     500 * time.Millisecond,
-		RatePerSecond: 5,
-		Burst:         5,
-		UserAgent:     "gmetrics/0.1",
+		MaxRetries:     3,
+		RetryWait:      500 * time.Millisecond,
+		RequestTimeout: 2 * time.Minute,
+		RatePerSecond:  5,
+		Burst:          5,
+		UserAgent:      "gmetrics/0.1",
 	})
 
 	if cfg.GitHub.Token == "" {
@@ -94,7 +95,7 @@ func runRender(cmd *cobra.Command, args []string) error {
 		Log:     logger,
 	}
 
-	engine := &metrics.Engine{Env: env, Strict: renderStrict}
+	engine := &metrics.Engine{Env: env, Strict: renderStrict || cfg.Plugins.Errors.Fatal}
 	frags, err := engine.Render(ctx, cfg)
 	if err != nil {
 		return fmt.Errorf("engine render: %w", err)

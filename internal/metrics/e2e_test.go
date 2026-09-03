@@ -18,13 +18,6 @@ import (
 	"github.com/twangodev/gmetrics/internal/metrics"
 	"github.com/twangodev/gmetrics/internal/plugin"
 	"github.com/twangodev/gmetrics/internal/render"
-
-	basepkg "github.com/twangodev/gmetrics/internal/plugins/base"
-	langpkg "github.com/twangodev/gmetrics/internal/plugins/languages"
-	musicpkg "github.com/twangodev/gmetrics/internal/plugins/music"
-	peoplepkg "github.com/twangodev/gmetrics/internal/plugins/people"
-	steampkg "github.com/twangodev/gmetrics/internal/plugins/steam"
-	wakapkg "github.com/twangodev/gmetrics/internal/plugins/wakatime"
 )
 
 // rewriteTransport redirects every request to target.Host (keeping path+query)
@@ -63,8 +56,10 @@ func e2eHandler(t *testing.T) http.Handler {
 			_, _ = w.Write([]byte(graphqlFollowingJSON))
 		case strings.Contains(bs, "languages(first"):
 			_, _ = w.Write([]byte(graphqlLanguagesJSON))
+		case strings.Contains(bs, "repositoriesContributedTo"):
+			_, _ = w.Write([]byte(graphqlBaseProfileJSON))
 		case strings.Contains(bs, "contributionsCollection"):
-			_, _ = w.Write([]byte(graphqlBaseUserJSON))
+			_, _ = w.Write([]byte(graphqlBaseContributionsJSON))
 		default:
 			http.Error(w, "graphql: unrecognised query: "+bs, http.StatusBadRequest)
 		}
@@ -96,6 +91,18 @@ func e2eHandler(t *testing.T) http.Handler {
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = w.Write([]byte(rateLimitJSON))
 	})
+	mux.HandleFunc("/users/alice", func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"login":"alice","followers":12,"following":7}`))
+	})
+	mux.HandleFunc("/users/alice/followers", func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`[{"login":"bob","type":"User","avatar_url":"https://avatars.example/bob.png"},{"login":"carol","type":"User","avatar_url":"https://avatars.example/carol.png"}]`))
+	})
+	mux.HandleFunc("/users/alice/following", func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`[{"login":"acme","type":"Organization","avatar_url":"https://avatars.example/acme.png"},{"login":"dave","type":"User","avatar_url":"https://avatars.example/dave.png"}]`))
+	})
 
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Query().Get("method") == "user.getrecenttracks" {
@@ -108,16 +115,6 @@ func e2eHandler(t *testing.T) http.Handler {
 	})
 
 	return mux
-}
-
-// reRegisterRealPlugins restores the real ctors after engine_test.go's fakes.
-func reRegisterRealPlugins() {
-	plugin.Register("base", func() plugin.Plugin { return basepkg.Plugin{} })
-	plugin.Register("languages", func() plugin.Plugin { return &langpkg.Plugin{} })
-	plugin.Register("people", func() plugin.Plugin { return &peoplepkg.Plugin{} })
-	plugin.Register("wakatime", func() plugin.Plugin { return wakapkg.Plugin{} })
-	plugin.Register("music", func() plugin.Plugin { return &musicpkg.Plugin{} })
-	plugin.Register("steam", func() plugin.Plugin { return &steampkg.Plugin{} })
 }
 
 // stripVolatile is the hook for redacting run-to-run drift; nothing drifts yet.
@@ -208,9 +205,6 @@ func TestE2E_FullPipelineGolden(t *testing.T) {
 		Output: config.OutputConfig{Action: "none"},
 	}
 
-	// music/steam base URLs aren't engine-wired; rewriteTransport redirects their hard-coded hosts.
-	reRegisterRealPlugins()
-
 	engine := &metrics.Engine{Env: env, Strict: false}
 	frags, err := engine.Render(ctx, cfg)
 	require.NoError(t, err)
@@ -248,7 +242,7 @@ func TestE2E_FullPipelineGolden(t *testing.T) {
 	g.Assert(t, "e2e_full", []byte(stripVolatile(svg)))
 }
 
-const graphqlBaseUserJSON = `{
+const graphqlBaseProfileJSON = `{
   "data": {
     "user": {
       "login": "alice",
@@ -265,6 +259,14 @@ const graphqlBaseUserJSON = `{
       "watching": {"totalCount": 5},
       "sponsorshipsAsSponsor": {"totalCount": 1},
       "repositories": {"totalCount": 14, "totalDiskUsage": 1024},
+      "repositoriesContributedTo": {"totalCount": 6}
+    }
+  }
+}`
+
+const graphqlBaseContributionsJSON = `{
+  "data": {
+    "user": {
       "contributionsCollection": {
         "totalCommitContributions": 200,
         "totalPullRequestContributions": 25,

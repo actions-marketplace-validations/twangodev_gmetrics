@@ -17,6 +17,10 @@ inputs:
     description: 'Output mode (v1 supports: none)'
     required: false
     default: none
+  plugins_errors_fatal:
+    description: Fail the whole render (and the action) on any plugin error, instead of embedding an error box in the image
+    required: false
+    default: 'no'
   base:
     description: Comma-separated base sections (header, activity, community, repositories, metadata)
     required: false
@@ -33,7 +37,7 @@ inputs:
     description: Comma-separated email/login aliases for commit authorship attribution
     required: false
   repositories:
-    description: Max repos to fetch
+    description: Max repositories to fetch after deduplicating affiliated and contributed repositories
     required: false
     default: '100'
   repositories_batch:
@@ -85,9 +89,9 @@ inputs:
     required: false
     default: 'followers, following'
   plugin_people_limit:
-    description: Max people per type
+    description: Max people fetched per type
     required: false
-    default: '24'
+    default: '40'
   plugin_people_size:
     description: Avatar size in pixels
     required: false
@@ -168,7 +172,7 @@ runs:
   using: composite
   steps:
     - if: ${{ inputs.plugin_languages_indepth == 'yes' || inputs.plugin_languages_indepth == 'true' || inputs.plugin_languages_indepth == '1' || inputs.plugin_languages_indepth == 'on' }}
-      uses: actions/cache@v4
+      uses: actions/cache@v5
       with:
         path: .gmetrics-cache
         key: gmetrics-languages-${{ github.run_id }}
